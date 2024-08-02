@@ -75,7 +75,7 @@ public class Main {
 
     }
 
-    private static void configureProxy(AppConfig config) {
+    public static void configureProxy(AppConfig config) {
 
         String http_proxy = System.getenv("http_proxy");
         if(http_proxy == null) return;
@@ -108,37 +108,17 @@ public class Main {
         if(proxyUser != null) System.setProperty("https.proxyUser", proxyUser);
         System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
 
-        // Java ignores http.proxyUser. Here come's the workaround.
-        Authenticator.setDefault(new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                if (getRequestorType() == RequestorType.PROXY) {
-                    String prot = getRequestingProtocol().toLowerCase();
-                    System.out.println("proxy................ requested !!!");
-                    String host = System.getProperty(prot + ".proxyHost", "");
-                    String port = System.getProperty(prot + ".proxyPort", "80");
-                    String user = System.getProperty(prot + ".proxyUser", "");
-                    String password = System.getProperty(prot + ".proxyPassword", "");
 
-                    if (getRequestingHost().equalsIgnoreCase(host)) {
-                        if (Integer.parseInt(port) == getRequestingPort()) {
-                            // Seems to be OK.
-                            return new PasswordAuthentication(user, password.toCharArray());
-                        }
-                    }
-                }
-                return null;
-            }
-        });
+
     }
 
-    private static AppConfig loadConfig() throws IOException, ClassNotFoundException {
+    public static AppConfig loadConfig() throws IOException, ClassNotFoundException {
         Path configFile = Path.of(System.getProperty("user.home"), "jclipboard.properties");
         if(!configFile.toFile().exists()){
             AppConfig.createExample(configFile);
             throw new IllegalStateException("ERROR: Please create mqtt file: "+configFile);
         }
-        return AppConfig.read(configFile);
+        return AppConfig.read(configFile.toString());
     }
 
 

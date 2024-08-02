@@ -75,9 +75,9 @@ public class AppConfig implements Serializable {
     }
 
 
-    public static AppConfig read(Path file) throws IOException, ClassNotFoundException {
+    public static AppConfig read(String file) throws IOException, ClassNotFoundException {
         PropertiesConfig properties = new PropertiesConfig();
-        properties.load(new FileInputStream(file.toFile()));
+        properties.load(new FileInputStream(file));
         AppConfig config = new AppConfig();
 
         config.setEnableFiles(Boolean.parseBoolean(properties.getAsRequired("EnableFiles")));

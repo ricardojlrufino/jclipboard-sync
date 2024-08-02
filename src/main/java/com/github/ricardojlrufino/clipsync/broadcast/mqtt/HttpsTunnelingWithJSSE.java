@@ -25,7 +25,8 @@ import javax.net.ssl.SSLSocketFactory;
  */
 public class HttpsTunnelingWithJSSE {
 	String tunnelHost = "127.0.0.1";
-	int tunnelPort = 80;
+	int tunnelPort = 40080;
+
 	String host = "passport.zhaopin.com";
 	int port = 443;
 	//	String host = "120.24.0.162";
@@ -33,7 +34,7 @@ public class HttpsTunnelingWithJSSE {
 	//	String tunnelHost = "passport.zhaopin.com";
 	//	int tunnelPort = 443;
 
-	String target = "http://www.verisign.com/index.html";
+	// String target = "http://www.verisign.com/index.html";
 
 	public static void main(String[] args) throws UnknownHostException, IOException {
 		System.setProperty("javax.net.ssl.trustStore",

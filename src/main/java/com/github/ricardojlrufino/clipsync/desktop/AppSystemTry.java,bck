@@ -1,0 +1,40 @@
+package com.github.ricardojlrufino.clipsync.desktop;
+
+
+import dorkbox.systemTray.MenuItem;
+import dorkbox.systemTray.SystemTray;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class AppSystemTry {
+
+    {
+        System.setProperty("java.awt.headless", "false");
+    }
+
+    public static void main(String[] args)  {
+
+
+
+        SystemTray systemTray = SystemTray.get();
+        if (systemTray == null) {
+            throw new RuntimeException("Unable to load SystemTray!");
+        }
+
+
+        systemTray.setImage("app.png");
+        systemTray.setStatus("Not Running");
+
+        systemTray.getMenu().add(new MenuItem("Quit", new ActionListener() {
+            @Override
+            public
+            void actionPerformed(final ActionEvent e) {
+                systemTray.shutdown();
+                //System.exit(0);  not necessary if all non-daemon threads have stopped.
+            }
+        })).setShortcut('q'); // case does not matter
+
+    }
+
+}

@@ -9,6 +9,8 @@ import java.util.Properties;
 
 public class AppConfig implements Serializable {
 
+    public static final String DEFAULT_IMPLEMENTATION = "mqtt";
+
     private MqttConfig mqtt;
 
     private String secretKey;
@@ -18,6 +20,8 @@ public class AppConfig implements Serializable {
     private int fileSizeMB;
 
     private String logLevel = "INFO";
+
+    private String implementation = DEFAULT_IMPLEMENTATION;
 
     public void setMqtt(MqttConfig mqtt) {
         this.mqtt = mqtt;
@@ -58,11 +62,20 @@ public class AppConfig implements Serializable {
         return logLevel;
     }
 
+    public String getImplementation() {
+        return implementation;
+    }
+
+    public void setImplementation(String implementation) {
+        this.implementation = implementation;
+    }
+
     public static void createExample(Path configFile) throws IOException, ClassNotFoundException {
         AppConfig config = new AppConfig();
         config.setSecretKey("CHANGE_MY_SECRETS");
         config.setEnableFiles(false);
         config.setFileSizeMB(2);
+        config.setImplementation(DEFAULT_IMPLEMENTATION);
 
         MqttConfig mqttConfig = new MqttConfig();
         config.setMqtt(mqttConfig);
@@ -76,6 +89,7 @@ public class AppConfig implements Serializable {
 
 
     public static AppConfig read(String file) throws IOException, ClassNotFoundException {
+        System.out.println("Loading config: " + file);
         PropertiesConfig properties = new PropertiesConfig();
         properties.load(new FileInputStream(file));
         AppConfig config = new AppConfig();
@@ -84,7 +98,7 @@ public class AppConfig implements Serializable {
         config.setFileSizeMB(Integer.parseInt(properties.getAsRequired("FileSizeMB")));
         config.setSecretKey(properties.getAsRequired("SecretKey"));
         config.setLogLevel(properties.getAsRequired("LogLevel"));
-
+        config.setImplementation(properties.getProperty("Implementation", DEFAULT_IMPLEMENTATION));
 
         boolean mqtt = Boolean.parseBoolean(properties.getAsRequired("mqtt.Enabled"));
 
@@ -94,6 +108,7 @@ public class AppConfig implements Serializable {
             mqttConfig.setUsername(properties.getAsRequired("mqtt.Username"));
             mqttConfig.setPassword(properties.getAsRequired("mqtt.Password"));
             mqttConfig.setTopic(properties.getAsRequired("mqtt.Topic"));
+            mqttConfig.setTargetTopic(properties.getProperty("mqtt.TargetTopic")); // Optional
             config.setMqtt(mqttConfig);
         }
 
@@ -107,16 +122,19 @@ public class AppConfig implements Serializable {
         properties.setProperty("FileSizeMB", ""+this.fileSizeMB);
         properties.setProperty("SecretKey", this.secretKey);
         properties.setProperty("LogLevel", this.logLevel);
+        properties.setProperty("Implementation", this.implementation);
 
         properties.setProperty("mqtt.Enabled", ""+true);
         properties.setProperty("mqtt.ServerURI", getMqtt().getServerURI());
         properties.setProperty("mqtt.Username", getMqtt().getUsername());
         properties.setProperty("mqtt.Password", getMqtt().getPassword());
         properties.setProperty("mqtt.Topic", getMqtt().getTopic());
+        properties.setProperty("mqtt.TargetTopic", getMqtt().getTargetTopic());
 
         OutputStream output = new FileOutputStream(file);
         properties.store(output, null);
         output.close();
 
     }
+   
 }

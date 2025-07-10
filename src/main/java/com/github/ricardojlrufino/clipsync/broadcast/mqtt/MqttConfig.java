@@ -7,6 +7,7 @@ public class MqttConfig implements Serializable {
     private String username;
     private String password;
     private String topic;
+    private String targetTopic;
 
     public String getServerURI() {
         return serverURI;
@@ -38,5 +39,13 @@ public class MqttConfig implements Serializable {
 
     public void setTopic(String topic) {
         this.topic = topic;
+    }
+
+    public String getTargetTopic() {
+        return targetTopic != null ? targetTopic : topic;
+    }
+
+    public void setTargetTopic(String targetTopic) {
+        this.targetTopic = targetTopic;
     }
 }

@@ -1,16 +1,8 @@
 package com.github.ricardojlrufino.clipsync;
 
 
-import com.github.ricardojlrufino.clipsync.broadcast.mqtt.MqttBroadcaster;
-import com.github.ricardojlrufino.clipsync.broadcast.mqtt.MqttConfig;
-import com.github.ricardojlrufino.clipsync.clipboard.ClipboardHandler;
-
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -18,22 +10,42 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
+import com.github.ricardojlrufino.clipsync.broadcast.NodePipeMqttBroadcaster;
+import com.github.ricardojlrufino.clipsync.broadcast.hivemq.HiveMqttBroadcaster;
+import com.github.ricardojlrufino.clipsync.broadcast.mqtt.MqttBroadcaster;
+import com.github.ricardojlrufino.clipsync.broadcast.mqtt.MqttConfig;
+import com.github.ricardojlrufino.clipsync.clipboard.ClipboardHandler;
+import com.github.ricardojlrufino.clipsync.utils.ProxyConfig;
+
 public class Main {
+
+    private static final String IMPL_MQTT = "mqtt";
+    private static final String IMPL_MQTT_PROXY = "mqtt-with-proxy";
+    private static final String IMPL_NODE_MQTT = "node-mqtt";
 
     public static void main(String[] args) throws Exception {
 
         AppConfig config = loadConfig();
         configureLogs(config);
-        configureProxy(config);
 
-        try {
-            System.out.println("AppTry start");
-            //AppSystemTry.main(args);
-            //AppTry2.main(args);
-            System.out.println("AppTryEnd");
-        }catch (Exception ex){
-            ex.printStackTrace();
-        }
+        String http_proxy = System.getenv("http_proxy");
+        if(http_proxy != null){
+            System.out.println("Using proxy system variable !");
+            ProxyConfig.configureProxyEnv();
+        } 
+
+
+        // try {
+        //     System.out.println("AppTry start");
+        //     AppSystemTry.main(args);
+        //     AppTry2.main(args);
+        //     System.out.println("AppTryEnd");
+        // }catch (Exception ex){
+        //     ex.printStackTrace();
+        // }
 
         SecretKeySpec key = new SecretKeySpec((config.getSecretKey()).getBytes(StandardCharsets.UTF_8), "AES");
 
@@ -44,14 +56,30 @@ public class Main {
         cipherOut.init(Cipher.ENCRYPT_MODE, key);
 
         MqttConfig mqtt = config.getMqtt();
-        MqttBroadcaster broadcaster = new MqttBroadcaster(mqtt);
-        broadcaster.setCipherIn(cipheriIn);
-        broadcaster.setCipherOut(cipherOut);
-
+    
         ClipboardHandler clipboardHandler = new ClipboardHandler(config);
         clipboardHandler.start();
-        broadcaster.setClipboardHandler(clipboardHandler);
 
+        if(config.getImplementation().equals(IMPL_MQTT)) {
+            MqttBroadcaster broadcaster = new MqttBroadcaster(mqtt);
+            broadcaster.setCipherIn(cipheriIn);
+            broadcaster.setCipherOut(cipherOut);
+            broadcaster.setClipboardHandler(clipboardHandler);
+        } else if(config.getImplementation().equals(IMPL_NODE_MQTT)) {
+            NodePipeMqttBroadcaster broadcaster = new NodePipeMqttBroadcaster(mqtt);
+            broadcaster.setCipherIn(cipheriIn);
+            broadcaster.setCipherOut(cipherOut);
+            broadcaster.setClipboardHandler(clipboardHandler);
+        } else if(config.getImplementation().equals(IMPL_MQTT_PROXY)) {
+            HiveMqttBroadcaster broadcaster = new HiveMqttBroadcaster(mqtt);
+            broadcaster.setCipherIn(cipheriIn);
+            broadcaster.setCipherOut(cipherOut);
+            broadcaster.setClipboardHandler(clipboardHandler);
+        } else {
+            throw new IllegalArgumentException("Unknown implementation: " + config.getImplementation());
+        }
+
+        // Main loop;
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 Thread.sleep(200);
@@ -75,42 +103,7 @@ public class Main {
 
     }
 
-    public static void configureProxy(AppConfig config) {
-
-        String http_proxy = System.getenv("http_proxy");
-        if(http_proxy == null) return;
-
-        URI uri = URI.create(http_proxy);
-        String proxyHost = uri.getHost();
-        int proxyPort = uri.getPort();
-        String proxyUser = uri.getUserInfo();
-        String proxyPassword = "";
-        if(proxyUser != null){
-            String[] split = proxyUser.split(":");
-            proxyUser = split[0];
-            proxyPassword = split[1];
-        }
-
-        System.out.println(proxyHost);
-        System.out.println(proxyPort);
-        System.out.println(proxyUser);
-        System.out.println(proxyPassword);
-
-        System.setProperty("http.proxyHost", proxyHost);
-        System.setProperty("http.proxyPort", ""+proxyPort);
-        System.setProperty("https.proxyHost", proxyHost);
-        System.setProperty("https.proxyPort", ""+proxyPort);
-
-        if(proxyPassword != null) System.setProperty("http.proxyPassword", proxyPassword);
-        if(proxyUser != null) System.setProperty("http.proxyUser", proxyUser);
-
-        if(proxyPassword != null) System.setProperty("https.proxyPassword", proxyPassword);
-        if(proxyUser != null) System.setProperty("https.proxyUser", proxyUser);
-        System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
-
-
-
-    }
+    
 
     public static AppConfig loadConfig() throws IOException, ClassNotFoundException {
         Path configFile = Path.of(System.getProperty("user.home"), "jclipboard.properties");

@@ -1,17 +1,20 @@
 package com.github.ricardojlrufino.clipsync.broadcast.mqtt;
 
-import com.github.ricardojlrufino.clipsync.broadcast.AbstractBroadcaster;
-import com.github.ricardojlrufino.clipsync.clipboard.ClipboardType;
-import org.eclipse.paho.mqttv5.client.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.eclipse.paho.mqttv5.client.IMqttToken;
+import org.eclipse.paho.mqttv5.client.MqttCallback;
+import org.eclipse.paho.mqttv5.client.MqttClient;
+import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
+import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import com.github.ricardojlrufino.clipsync.broadcast.AbstractBroadcaster;
+import com.github.ricardojlrufino.clipsync.clipboard.ClipboardType;
 
 public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback {
 
@@ -19,16 +22,17 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
 
     private final MqttClient client;
     private final String topic;
+    private final String targetTopic;
     private static final int MQTT_QOS = 1;
 
     public MqttBroadcaster(MqttConfig config) throws MqttException {
-
         this.client = new MqttClient(
-                config.getServerURI(), //URI
-                "clipboard-" + randonString(12), //ClientId
+                config.getServerURI(), // URI
+                "clipboard-" + randonString(12), // ClientId
                 new MemoryPersistence());
 
         this.topic = config.getTopic();
+        this.targetTopic = config.getTargetTopic();
         this.connect(config);
     }
 
@@ -39,12 +43,6 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
         options.setUserName(config.getUsername());
         if (config.getPassword() != null) {
             options.setPassword(config.getPassword().getBytes());
-        }
-
-        String proxy = System.getProperty("http.proxyHost");
-        if(proxy != null){
-            logger.info("Settings proxy tunel " + proxy);
-            options.setSocketFactory(new SslTunnelFactory());
         }
 
         logger.info("Connecting to " + config.getServerURI());
@@ -62,9 +60,9 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
     @Override
     protected void broadcast(int type, byte[] data) {
         try {
-            String target = topic + "/" + this.client.getClientId();
-            logger.fine("Sending clipboard data to: " + target + ", length: " + data.length + ", type: " + ClipboardType.describe(type));
-            client.publish(target, data, MQTT_QOS, false);
+            logger.fine("Sending clipboard data to: " + targetTopic + ", length: " + data.length + ", type: "
+                    + ClipboardType.describe(type));
+            client.publish(targetTopic, data, MQTT_QOS, false);
         } catch (MqttException e) {
             throw new RuntimeException(e);
         }

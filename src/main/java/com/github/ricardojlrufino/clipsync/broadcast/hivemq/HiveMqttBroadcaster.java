@@ -107,7 +107,7 @@ public class HiveMqttBroadcaster extends AbstractBroadcaster {
         });
 
         client.subscribeWith()
-                .topicFilter(config.getTopic()+ "/+")
+                .topicFilter(config.getTopic())
                 .qos(MqttQos.AT_LEAST_ONCE)
                 .send();
     }

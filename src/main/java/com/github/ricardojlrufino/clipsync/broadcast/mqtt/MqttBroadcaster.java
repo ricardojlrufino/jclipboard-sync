@@ -51,7 +51,7 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
         if (client.isConnected()) {
             logger.info("Connected !");
             client.setCallback(this);
-            client.subscribe(topic + "/+", MQTT_QOS);
+            client.subscribe(topic, MQTT_QOS);
         } else {
             logger.severe("Connection fail");
         }

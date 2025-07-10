@@ -1,5 +1,7 @@
 package com.github.ricardojlrufino.clipsync.broadcast.mqtt;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,6 +26,7 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
     private final String topic;
     private final String targetTopic;
     private static final int MQTT_QOS = 1;
+    private boolean useBase64 = true; // required
 
     public MqttBroadcaster(MqttConfig config) throws MqttException {
         this.client = new MqttClient(
@@ -62,6 +65,12 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
         try {
             logger.fine("Sending clipboard data to: " + targetTopic + ", length: " + data.length + ", type: "
                     + ClipboardType.describe(type));
+
+            if (useBase64) {
+                String base64Data = Base64.getEncoder().encodeToString(data);
+                data = base64Data.getBytes(StandardCharsets.UTF_8);
+            }
+
             client.publish(targetTopic, data, MQTT_QOS, false);
         } catch (MqttException e) {
             throw new RuntimeException(e);
@@ -83,6 +92,10 @@ public class MqttBroadcaster extends AbstractBroadcaster implements MqttCallback
 
         String clientID = topicSrc.substring(topic.length() + 1);
         byte[] payload = mqttMessage.getPayload();
+        if(useBase64){
+            payload = Base64.getDecoder().decode(payload);
+        }
+            
         payload = super.decrypt(payload);
 
         logger.finest("messageArrived from " + topicSrc + ", size: " + payload.length + ", type: " + payload[0]);

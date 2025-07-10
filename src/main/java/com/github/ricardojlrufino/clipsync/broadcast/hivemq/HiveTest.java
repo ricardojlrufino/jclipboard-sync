@@ -17,6 +17,7 @@ import com.hivemq.client.mqtt.MqttProxyProtocol;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
+import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PublishResult;
 
 public class HiveTest {
 
@@ -67,6 +68,12 @@ public class HiveTest {
         Mqtt5ConnAck connAck = client.connect();
 
         System.out.println("connAck: " + connAck);
+
+        client.publishWith()
+                .topic(mqtt.getTargetTopic())
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload("teste".getBytes())
+                .send();
 
         try (final Mqtt5BlockingClient.Mqtt5Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL)) {
 

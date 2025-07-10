@@ -1,11 +1,10 @@
 package com.github.ricardojlrufino.clipsync.broadcast.hivemq;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
-import java.util.logging.Level;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
-
-import org.eclipse.paho.mqttv5.common.MqttException;
 
 import com.github.ricardojlrufino.clipsync.broadcast.AbstractBroadcaster;
 import com.github.ricardojlrufino.clipsync.broadcast.mqtt.MqttBroadcaster;
@@ -17,18 +16,20 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.MqttProxyConfig;
 import com.hivemq.client.mqtt.MqttProxyProtocol;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
-import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
+import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
+import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAck;
 
 public class HiveMqttBroadcaster extends AbstractBroadcaster {
 
     public static final Logger logger = Logger.getLogger(MqttBroadcaster.class.getName());
 
     private MqttConfig config;
-    private Mqtt5BlockingClient client;
+    private Mqtt5AsyncClient client;
     private String clientId;
     private String topic;
     private String targetTopic;
+
+    private boolean useBase64 = true; // required
 
     public HiveMqttBroadcaster(MqttConfig config) {
         this.config = config;
@@ -71,45 +72,50 @@ public class HiveMqttBroadcaster extends AbstractBroadcaster {
                 .transportConfig()
                     .proxyConfig(mqttProxyConfig)
                     .applyTransportConfig()
-                .buildBlocking();
+                .buildAsync();
 
-         Mqtt5ConnAck connAck = client.connect();
 
-        System.out.println("connAck: " + connAck);
+         // 2. Connect to the broker
+        client.connect()
+                .whenComplete((connAck, throwable) -> {
+                    if (throwable != null) {
+                        System.err.println("Connection failed: " + throwable.getMessage());
+                    } else {
+                        System.out.println("Connected to broker");
 
-        // Start message receiving
-        client.toAsync().publishes(MqttGlobalPublishFilter.ALL, publish -> {
-            if (!publish.getPayload().isPresent())
-                return;
+                        // 3. Subscribe to the topic
+                        final CompletableFuture<Mqtt5SubAck> subAck = client.subscribeWith()
+                                .topicFilter(topic)
+                                .qos(MqttQos.AT_LEAST_ONCE) 
+                                .send();
 
-            byte[] payload = publish.getPayloadAsBytes();
-            String topicSrc = publish.getTopic().toString();
-            String messageClientID = topicSrc.substring(this.topic.length() + 1);
+                        subAck.whenComplete((ack, t) -> {
+                            if (t != null) {
+                                System.err.println("Subscription failed: " + t.getMessage());
+                            } else {
+                                System.out.println("Subscribed to topic: " + topic);
 
-            payload = super.decrypt(payload);
+                                client.publishes(MqttGlobalPublishFilter.ALL, (publish) -> {
 
-            logger.finest("messageArrived from " + topicSrc + ", size: " + payload.length + ", type: " + payload[0]);
+                                    String topicSrc = publish.getTopic().toString();
+                                    byte[] payload = publish.getPayloadAsBytes();
+                                    if(useBase64){
+                                        payload = Base64.getDecoder().decode(payload);
+                                    }
+                        
+                                    payload = super.decrypt(payload);
+                        
+                                    logger.finest("messageArrived from " + topicSrc + ", size: " + payload.length + ", type: " + payload[0]);
+                        
+                                    updateClipboard(payload);
+                        
+                                });
+                            }
+                        });
+                    }
+                });
 
-            if (!messageClientID.equals(this.clientId)) {
 
-                updateClipboard(payload);
-
-            } else {
-
-                logger.fine("ignoring self messages, payload size: " + payload.length);
-
-                // Allow debug using single client... self messages
-                if (logger.isLoggable(Level.FINEST)) {
-                    updateClipboard(payload);
-                }
-            }
-
-        });
-
-        client.subscribeWith()
-                .topicFilter(config.getTopic())
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .send();
     }
 
     @Override
@@ -123,15 +129,20 @@ public class HiveMqttBroadcaster extends AbstractBroadcaster {
             logger.fine("Sending clipboard data to: " + targetTopic + ", length: " + data.length + ", type: "
                     + ClipboardType.describe(type));
    
+            if (useBase64) {
+                String base64Data = Base64.getEncoder().encodeToString(data);
+                data = base64Data.getBytes(StandardCharsets.UTF_8);
+            }
+            
             client.publishWith()
                 .topic(targetTopic)
                 .qos(MqttQos.AT_LEAST_ONCE)
                 .payload(data)
                 .send();
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
     }
 
 }
